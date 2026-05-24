@@ -52,7 +52,9 @@ spec:
           metadata:
             type: object
           spec:
-            description: ProxmoxClusterSpec defines the desired state of a ProxmoxCluster.
+            description: |-
+              DHCP fork: XValidation rule dropped to permit DHCP-only clusters
+              (see api/v1alpha2/proxmoxcluster_types.go for the rationale).
             properties:
               allowedNodes:
                 description: |-
@@ -857,9 +859,6 @@ spec:
             required:
             - dnsServers
             type: object
-            x-kubernetes-validations:
-            - message: at least one ip config must be set, either ipv4Config or ipv6Config
-              rule: self.ipv4Config != null || self.ipv6Config != null
           status:
             description: ProxmoxClusterStatus defines the observed state of a ProxmoxCluster.
             properties:
@@ -1084,7 +1083,16 @@ spec:
           metadata:
             type: object
           spec:
-            description: spec is the Proxmox Cluster spec
+            description: |-
+              spec is the Proxmox Cluster spec
+
+              DHCP fork (raaghassi/cluster-api-provider-proxmox): the upstream
+              XValidation rule requiring `self.ipv4Config != null ||
+              self.ipv6Config != null` is dropped to permit DHCP-only clusters
+              (no CAPMox-managed IPAM pool; per-NIC NetworkDevice.dhcp4/dhcp6
+              drive cidata `dhcp4: true` and an external DHCP server provides
+              the lease). Clusters that still use static IPAM should continue
+              to set ipv4Config; this change makes it optional, not forbidden.
             properties:
               allowedNodes:
                 description: |-
@@ -1343,9 +1351,6 @@ spec:
             required:
             - dnsServers
             type: object
-            x-kubernetes-validations:
-            - message: at least one ip config must be set, either ipv4Config or ipv6Config
-              rule: self.ipv4Config != null || self.ipv6Config != null
           status:
             description: status is the Proxmox Cluster status
             properties:

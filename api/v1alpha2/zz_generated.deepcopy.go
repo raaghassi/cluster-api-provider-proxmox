@@ -192,6 +192,16 @@ func (in *NetworkDevice) DeepCopyInto(out *NetworkDevice) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.DHCP4 != nil {
+		in, out := &in.DHCP4, &out.DHCP4
+		*out = new(bool)
+		**out = **in
+	}
+	if in.DHCP6 != nil {
+		in, out := &in.DHCP6, &out.DHCP6
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Model != nil {
 		in, out := &in.Model, &out.Model
 		*out = new(string)

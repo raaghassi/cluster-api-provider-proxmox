@@ -1035,6 +1035,19 @@ spec:
                           description: defaultIPv6 attaches the ipv6 host network
                             to this interface.
                           type: boolean
+                        dhcp4:
+                          description: |-
+                            dhcp4 enables DHCPv4 on this interface. When true, the rendered
+                            cloud-init network-config sets `dhcp4: true` on the matching NIC
+                            and skips static address assignment. Mutually independent of
+                            defaultIPv4/ipPoolRef — if you set dhcp4 alongside an IPAM pool,
+                            the IPAM-assigned addresses are still written and DHCP runs on
+                            top of them (cloud-init permits that combination).
+                          type: boolean
+                        dhcp6:
+                          description: dhcp6 enables DHCPv6 on this interface. Same
+                            semantics as dhcp4.
+                          type: boolean
                         dnsServers:
                           description: |-
                             dnsServers contains information about nameservers to be used for this interface.

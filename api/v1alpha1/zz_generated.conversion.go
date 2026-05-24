@@ -596,6 +596,8 @@ func autoConvert_v1alpha2_NetworkDevice_To_v1alpha1_NetworkDevice(in *v1alpha2.N
 	}
 	// WARNING: in.DefaultIPv4 requires manual conversion: does not exist in peer-type
 	// WARNING: in.DefaultIPv6 requires manual conversion: does not exist in peer-type
+	// WARNING: in.DHCP4 requires manual conversion: does not exist in peer-type
+	// WARNING: in.DHCP6 requires manual conversion: does not exist in peer-type
 	out.Model = (*string)(unsafe.Pointer(in.Model))
 	if in.MTU != nil {
 		in, out := &in.MTU, &out.MTU
