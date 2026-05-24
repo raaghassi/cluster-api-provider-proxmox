@@ -36,11 +36,13 @@ var _ = Describe("Controller Test", func() {
 			g.Expect(k8sClient.Create(testEnv.GetContext(), &cluster)).To(MatchError(ContainSubstring("addresses may not contain the endpoint IP")))
 		})
 
-		It("should disallow cluster without any IP pool config", func() {
+		It("should allow cluster without any IP pool config (DHCP fork)", func() {
 			cluster := validProxmoxCluster("test-cluster")
 			cluster.Spec.IPv4Config = nil
-			cluster.SetName("test-invalid-cluster")
-			g.Expect(k8sClient.Create(testEnv.GetContext(), &cluster)).To(MatchError(ContainSubstring("at least one ip config must be set")))
+			cluster.SetName("test-no-ip-pool-cluster")
+			// DHCP fork: webhook hasNoIPPoolConfig() gate dropped +
+			// the corresponding XValidation rule on the type.
+			g.Expect(k8sClient.Create(testEnv.GetContext(), &cluster)).To(Succeed())
 		})
 
 		It("should disallow invalid endpoint FQDN", func() {

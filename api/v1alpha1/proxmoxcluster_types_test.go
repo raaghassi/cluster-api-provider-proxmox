@@ -131,11 +131,12 @@ var _ = Describe("ProxmoxCluster Test", func() {
 			Expect(k8sClient.Create(context.Background(), dc)).Should(MatchError(ContainSubstring("should be less than or equal to 128")))
 		})
 
-		It("Should not allow empty ip config", func() {
+		It("Should allow empty ip config (DHCP fork)", func() {
 			dc := defaultCluster()
 			dc.Spec.IPv6Config = nil
 			dc.Spec.IPv4Config = nil
-			Expect(k8sClient.Create(context.Background(), dc)).Should(MatchError(ContainSubstring("at least one ip config must be set")))
+			// DHCP fork: rule dropped — DHCP-only clusters permitted.
+			Expect(k8sClient.Create(context.Background(), dc)).Should(Succeed())
 		})
 	})
 
