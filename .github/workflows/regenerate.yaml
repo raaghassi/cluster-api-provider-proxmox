@@ -1,0 +1,57 @@
+name: regenerate
+
+# Run `make generate manifests` in CI and commit the regenerated
+# zz_generated_*.go + config/crd/bases/*.yaml files back to the
+# triggering branch. Used when the API types change on dhcp-support
+# (or any feature branch) and the local environment doesn't have
+# Go 1.25 installed.
+#
+# Workflow_dispatch only — never auto-runs on push.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Branch to regenerate on (default: dhcp-support)'
+        required: false
+        default: 'dhcp-support'
+
+permissions:
+  contents: write
+
+jobs:
+  regen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.inputs.target_branch }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: go.mod
+
+      - name: Run make generate manifests
+        run: |
+          make generate
+          make manifests
+
+      - name: Diff regenerated files
+        run: git --no-pager diff
+
+      - name: Commit + push regenerated artifacts
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "No changes after regeneration; nothing to commit."
+            exit 0
+          fi
+          git add -A
+          git commit -m "regen: make generate manifests (dhcp4/dhcp6 plumbing)
+
+Automated regeneration via .github/workflows/regenerate.yaml after
+API-type changes that aren't reflected in the committed
+zz_generated_*.go + config/crd/bases/*.yaml files."
+          git push origin "HEAD:${{ github.event.inputs.target_branch }}"
