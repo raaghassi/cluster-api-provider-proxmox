@@ -49,9 +49,7 @@ jobs:
             exit 0
           fi
           git add -A
-          git commit -m "regen: make generate manifests (dhcp4/dhcp6 plumbing)
-
-Automated regeneration via .github/workflows/regenerate.yaml after
-API-type changes that aren't reflected in the committed
-zz_generated_*.go + config/crd/bases/*.yaml files."
+          git commit \
+            -m "regen: make generate manifests (dhcp4/dhcp6 plumbing)" \
+            -m "Automated regeneration via .github/workflows/regenerate.yaml after API-type changes that aren't reflected in the committed zz_generated_*.go + config/crd/bases/*.yaml files."
           git push origin "HEAD:${{ github.event.inputs.target_branch }}"
