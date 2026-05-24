@@ -236,7 +236,8 @@ type ProxmoxCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:validation:XValidation:rule="self.ipv4Config != null || self.ipv6Config != null",message="at least one ip config must be set, either ipv4Config or ipv6Config"
+	// DHCP fork: XValidation rule dropped to permit DHCP-only clusters
+	// (see api/v1alpha2/proxmoxcluster_types.go for the rationale).
 	Spec   ProxmoxClusterSpec   `json:"spec,omitempty"`
 	Status ProxmoxClusterStatus `json:"status,omitempty"`
 }

@@ -307,6 +307,15 @@ func getNetworkDevices(ctx context.Context, machineScope *scope.MachineScope, ne
 		}
 		config = conf
 
+		// DHCP fork: pass NetworkDevice.dhcp4/dhcp6 through to cidata.
+		// pkg/cloudinit/network.go's validate() short-circuits with
+		// ErrMissingIPAddress only when all three are absent
+		// (!DHCP4 && !DHCP6 && len(IPConfigs)==0), so a DHCP-only NIC
+		// is permitted; the rendered network-config emits
+		// `dhcp4: true` and no static addresses.
+		config.DHCP4 = ptr.Deref(nic.DHCP4, false)
+		config.DHCP6 = ptr.Deref(nic.DHCP6, false)
+
 		getCommonInterfaceConfig(ctx, machineScope, config, nic.InterfaceConfig)
 
 		config.Name = fmt.Sprintf("eth%d", i)

@@ -436,6 +436,19 @@ type NetworkDevice struct {
 	// +optional
 	DefaultIPv6 *bool `json:"defaultIPv6,omitempty"`
 
+	// dhcp4 enables DHCPv4 on this interface. When true, the rendered
+	// cloud-init network-config sets `dhcp4: true` on the matching NIC
+	// and skips static address assignment. Mutually independent of
+	// defaultIPv4/ipPoolRef — if you set dhcp4 alongside an IPAM pool,
+	// the IPAM-assigned addresses are still written and DHCP runs on
+	// top of them (cloud-init permits that combination).
+	// +optional
+	DHCP4 *bool `json:"dhcp4,omitempty"`
+
+	// dhcp6 enables DHCPv6 on this interface. Same semantics as dhcp4.
+	// +optional
+	DHCP6 *bool `json:"dhcp6,omitempty"`
+
 	// model is the network device model.
 	// Defaults to "virtio" when not specified.
 	// +optional

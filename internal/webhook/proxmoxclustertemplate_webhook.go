@@ -61,11 +61,8 @@ func (*ProxmoxClusterTemplate) ValidateCreate(_ context.Context, obj runtime.Obj
 		return warnings, apierrors.NewBadRequest(fmt.Sprintf("expected a ProxmoxClusterTemplate but got %T", obj))
 	}
 
-	if hasNoIPPoolConfig(&cluster.Spec.Template.Spec) {
-		err = errors.New("proxmox cluster must define at least one IP pool config")
-		warnings = append(warnings, fmt.Sprintf("proxmox cluster template must define at least one IP pool config %s", cluster.GetName()))
-		return warnings, err
-	}
+	// DHCP fork: ipv4Config/ipv6Config gate dropped to permit DHCP-only
+	// clusters. See proxmoxcluster_webhook.go for the rationale.
 
 	if err := validateControlPlaneEndpoint(&cluster.Spec.Template.Spec, cluster.GroupVersionKind().GroupKind(), cluster.GetName()); err != nil {
 		warnings = append(warnings, fmt.Sprintf("cannot create proxmox cluster template %s", cluster.GetName()))

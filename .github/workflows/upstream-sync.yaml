@@ -1,0 +1,104 @@
+name: upstream-sync
+
+# Weekly scheduled check for new upstream tags/commits on
+# ionos-cloud/cluster-api-provider-proxmox. Opens a PR rebasing the
+# dhcp-support branch onto upstream/main if there's anything to pick
+# up. The PR's CI runs the dhcp-fork-image build, so a green PR
+# indicates the patches still apply cleanly.
+#
+# Manual trigger via workflow_dispatch for ad-hoc syncs after an
+# upstream release.
+
+on:
+  schedule:
+    # Mondays 04:00 UTC — quiet time, before the work week.
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: 'Upstream ref to merge (default: main)'
+        required: false
+        default: 'main'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    name: rebase dhcp-support onto upstream
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: dhcp-support
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote + fetch
+        run: |
+          git remote add upstream https://github.com/ionos-cloud/cluster-api-provider-proxmox
+          git fetch upstream --tags --prune
+          git fetch upstream "${UPSTREAM_REF}"
+        env:
+          UPSTREAM_REF: ${{ github.event.inputs.upstream_ref || 'main' }}
+
+      - name: Check whether upstream has new commits
+        id: gap
+        run: |
+          BEHIND=$(git rev-list --count HEAD..upstream/${UPSTREAM_REF})
+          echo "behind=${BEHIND}" >> "${GITHUB_OUTPUT}"
+          echo "Behind upstream by ${BEHIND} commit(s)."
+        env:
+          UPSTREAM_REF: ${{ github.event.inputs.upstream_ref || 'main' }}
+
+      - name: Create sync branch + attempt merge
+        if: steps.gap.outputs.behind != '0'
+        id: merge
+        run: |
+          SYNC_BRANCH="upstream-sync/$(date -u +%Y%m%d-%H%M%S)"
+          echo "branch=${SYNC_BRANCH}" >> "${GITHUB_OUTPUT}"
+          git checkout -b "${SYNC_BRANCH}"
+          if git merge --no-edit "upstream/${UPSTREAM_REF}"; then
+            echo "conflicts=false" >> "${GITHUB_OUTPUT}"
+          else
+            git merge --abort
+            echo "conflicts=true" >> "${GITHUB_OUTPUT}"
+          fi
+        env:
+          UPSTREAM_REF: ${{ github.event.inputs.upstream_ref || 'main' }}
+
+      - name: Push sync branch (clean merge)
+        if: steps.gap.outputs.behind != '0' && steps.merge.outputs.conflicts == 'false'
+        run: git push origin "${SYNC_BRANCH}"
+        env:
+          SYNC_BRANCH: ${{ steps.merge.outputs.branch }}
+
+      - name: Open PR for clean merge
+        if: steps.gap.outputs.behind != '0' && steps.merge.outputs.conflicts == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SYNC_BRANCH: ${{ steps.merge.outputs.branch }}
+        run: |
+          gh pr create \
+            --base dhcp-support \
+            --head "${SYNC_BRANCH}" \
+            --title "upstream-sync: merge upstream/${UPSTREAM_REF}" \
+            --body "Automated weekly sync from ionos-cloud/cluster-api-provider-proxmox. Merge applied cleanly; CI on this PR will rerun the dhcp-fork build."
+        # UPSTREAM_REF inherited via env above — gh subprocess reads it
+        continue-on-error: true
+
+      - name: Open issue for merge conflict
+        if: steps.gap.outputs.behind != '0' && steps.merge.outputs.conflicts == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "upstream-sync: merge conflict on upstream/${UPSTREAM_REF}" \
+            --body "Automated rebase of dhcp-support onto upstream hit conflicts on the DHCP patches. Resolve manually: \`git fetch upstream && git merge upstream/${UPSTREAM_REF}\` from a local dhcp-support checkout, then push." \
+            --label "upstream-sync,needs-manual-rebase"

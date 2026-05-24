@@ -308,7 +308,14 @@ type ProxmoxCluster struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// spec is the Proxmox Cluster spec
-	// +kubebuilder:validation:XValidation:rule="self.ipv4Config != null || self.ipv6Config != null",message="at least one ip config must be set, either ipv4Config or ipv6Config"
+	//
+	// DHCP fork (raaghassi/cluster-api-provider-proxmox): the upstream
+	// XValidation rule requiring `self.ipv4Config != null ||
+	// self.ipv6Config != null` is dropped to permit DHCP-only clusters
+	// (no CAPMox-managed IPAM pool; per-NIC NetworkDevice.dhcp4/dhcp6
+	// drive cidata `dhcp4: true` and an external DHCP server provides
+	// the lease). Clusters that still use static IPAM should continue
+	// to set ipv4Config; this change makes it optional, not forbidden.
 	// +required
 	Spec ProxmoxClusterSpec `json:"spec,omitzero"`
 

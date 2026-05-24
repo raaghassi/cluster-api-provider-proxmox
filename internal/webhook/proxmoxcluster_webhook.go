@@ -68,11 +68,12 @@ func (*ProxmoxCluster) ValidateCreate(_ context.Context, obj runtime.Object) (wa
 		return warnings, apierrors.NewBadRequest(fmt.Sprintf("expected a ProxmoxCluster but got %T", obj))
 	}
 
-	if hasNoIPPoolConfig(&cluster.Spec) {
-		err = errors.New("proxmox cluster must define at least one IP pool config")
-		warnings = append(warnings, fmt.Sprintf("proxmox cluster must define at least one IP pool config %s", cluster.GetName()))
-		return warnings, err
-	}
+	// DHCP fork: the upstream check that rejects clusters with no
+	// ipv4Config/ipv6Config is dropped to permit DHCP-only clusters
+	// (per-NIC NetworkDevice.dhcp4/dhcp6 drives cidata; no
+	// cluster-level IPAM pool is required). Clusters that still use
+	// IPAM continue to set ipv4Config; allocation paths gate
+	// themselves at handleDevices() based on DefaultIPv4/IPPoolRef.
 
 	if err := validateControlPlaneEndpoint(&cluster.Spec, cluster.GroupVersionKind().GroupKind(), cluster.GetName()); err != nil {
 		warnings = append(warnings, fmt.Sprintf("cannot create proxmox cluster %s", cluster.GetName()))
