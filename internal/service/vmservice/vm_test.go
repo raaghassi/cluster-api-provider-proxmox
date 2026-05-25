@@ -552,7 +552,7 @@ func TestReconcileMachineAddresses_IPv4(t *testing.T) {
 	}}
 	machineScope.ProxmoxMachine.Status.BootstrapDataProvided = ptr.To(true)
 
-	require.NoError(t, reconcileMachineAddresses(machineScope))
+	require.NoError(t, reconcileMachineAddresses(context.Background(), machineScope))
 	require.Equal(t, machineScope.ProxmoxMachine.Status.Addresses[0].Address, machineScope.ProxmoxMachine.GetName())
 	require.Equal(t, machineScope.ProxmoxMachine.Status.Addresses[1].Address, "10.10.10.10")
 }
@@ -578,7 +578,7 @@ func TestReconcileMachineAddresses_IPv6(t *testing.T) {
 	}}
 	machineScope.ProxmoxMachine.Status.BootstrapDataProvided = ptr.To(true)
 
-	require.NoError(t, reconcileMachineAddresses(machineScope))
+	require.NoError(t, reconcileMachineAddresses(context.Background(), machineScope))
 	require.Equal(t, machineScope.ProxmoxMachine.Status.Addresses[0].Address, machineScope.ProxmoxMachine.GetName())
 	require.Equal(t, machineScope.ProxmoxMachine.Status.Addresses[1].Address, "2001:db8::2")
 }
@@ -605,10 +605,49 @@ func TestReconcileMachineAddresses_DualStack(t *testing.T) {
 	}}
 	machineScope.ProxmoxMachine.Status.BootstrapDataProvided = ptr.To(true)
 
-	require.NoError(t, reconcileMachineAddresses(machineScope))
+	require.NoError(t, reconcileMachineAddresses(context.Background(), machineScope))
 	require.Equal(t, machineScope.ProxmoxMachine.Status.Addresses[0].Address, machineScope.ProxmoxMachine.GetName())
 	require.Equal(t, machineScope.ProxmoxMachine.Status.Addresses[1].Address, "10.10.10.10")
 	require.Equal(t, machineScope.ProxmoxMachine.Status.Addresses[2].Address, "2001:db8::2")
+}
+
+// TestReconcileMachineAddresses_DHCPFallback covers the pure-DHCP path:
+// no IPAM-allocated addresses on the Machine, so the controller falls
+// back to qemu-guest-agent to discover the DHCP-assigned IPs.
+func TestReconcileMachineAddresses_DHCPFallback(t *testing.T) {
+	machineScope, proxmoxClient, _ := setupReconcilerTestWithCondition(t, infrav1.ProxmoxMachineVirtualMachineProvisionedWaitingForClusterAPIMachineAddressesReason)
+
+	vm := newRunningVM()
+	machineScope.SetVirtualMachine(vm)
+	machineScope.SetVirtualMachineID(int64(vm.VMID))
+	// No Status.IPAddresses populated — pure-DHCP, IPAM index lookup misses.
+	machineScope.ProxmoxMachine.Status.BootstrapDataProvided = ptr.To(true)
+
+	proxmoxClient.EXPECT().GetVMAgentNetworkInterfaces(context.Background(), vm).
+		Return([]string{"172.16.40.130"}, []string{"2001:db8::42"}, nil).Once()
+
+	require.NoError(t, reconcileMachineAddresses(context.Background(), machineScope))
+	require.Equal(t, machineScope.ProxmoxMachine.GetName(), machineScope.ProxmoxMachine.Status.Addresses[0].Address)
+	require.Equal(t, "172.16.40.130", machineScope.ProxmoxMachine.Status.Addresses[1].Address)
+	require.Equal(t, "2001:db8::42", machineScope.ProxmoxMachine.Status.Addresses[2].Address)
+}
+
+// TestReconcileMachineAddresses_DHCPFallback_NoQGA covers the case where
+// QGA isn't up yet (Talos still installing). reconcileMachineAddresses
+// should surface the error so the controller retries the stage.
+func TestReconcileMachineAddresses_DHCPFallback_NoQGA(t *testing.T) {
+	machineScope, proxmoxClient, _ := setupReconcilerTestWithCondition(t, infrav1.ProxmoxMachineVirtualMachineProvisionedWaitingForClusterAPIMachineAddressesReason)
+
+	vm := newRunningVM()
+	machineScope.SetVirtualMachine(vm)
+	machineScope.SetVirtualMachineID(int64(vm.VMID))
+	machineScope.ProxmoxMachine.Status.BootstrapDataProvided = ptr.To(true)
+
+	proxmoxClient.EXPECT().GetVMAgentNetworkInterfaces(context.Background(), vm).
+		Return(nil, nil, fmt.Errorf("error waiting for agent")).Once()
+
+	err := reconcileMachineAddresses(context.Background(), machineScope)
+	require.Error(t, err)
 }
 
 func TestReconcileVirtualMachineConfigVLAN(t *testing.T) {

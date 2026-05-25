@@ -55,4 +55,11 @@ type Client interface {
 	CloudInitStatus(ctx context.Context, vm *proxmox.VirtualMachine) (bool, error)
 
 	QemuAgentStatus(ctx context.Context, vm *proxmox.VirtualMachine) error
+
+	// GetVMAgentNetworkInterfaces queries the VM's qemu-guest-agent for
+	// its network interfaces and returns the IPv4 / IPv6 addresses it
+	// reports, filtering out loopback and IPv6 link-local entries. Used
+	// to discover DHCP-assigned addresses when CAPMox-managed IPAM has
+	// no record of the assignment (pure-DHCP mode).
+	GetVMAgentNetworkInterfaces(ctx context.Context, vm *proxmox.VirtualMachine) (ipv4, ipv6 []string, err error)
 }

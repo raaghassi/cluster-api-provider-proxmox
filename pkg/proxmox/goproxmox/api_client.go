@@ -391,3 +391,43 @@ func (c *APIClient) QemuAgentStatus(ctx context.Context, vm *proxmox.VirtualMach
 
 	return nil
 }
+
+// GetVMAgentNetworkInterfaces queries QGA for the VM's network interfaces
+// and returns the discovered addresses split by family. Loopback
+// interfaces and IPv6 link-local entries are filtered out. Caller is
+// responsible for handling the case where QGA isn't yet up (transient
+// error during boot).
+func (c *APIClient) GetVMAgentNetworkInterfaces(ctx context.Context, vm *proxmox.VirtualMachine) (ipv4, ipv6 []string, err error) {
+	if err := c.QemuAgentStatus(ctx, vm); err != nil {
+		return nil, nil, err
+	}
+
+	ifaces, err := vm.AgentGetNetworkIFaces(ctx)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "unable to get agent network interfaces")
+	}
+
+	for _, iface := range ifaces {
+		if iface == nil || iface.Name == "lo" || strings.HasPrefix(iface.Name, "lo:") {
+			continue
+		}
+		for _, ip := range iface.IPAddresses {
+			if ip == nil || ip.IPAddress == "" {
+				continue
+			}
+			switch ip.IPAddressType {
+			case "ipv4":
+				if strings.HasPrefix(ip.IPAddress, "127.") {
+					continue
+				}
+				ipv4 = append(ipv4, ip.IPAddress)
+			case "ipv6":
+				if strings.HasPrefix(strings.ToLower(ip.IPAddress), "fe80:") {
+					continue
+				}
+				ipv6 = append(ipv6, ip.IPAddress)
+			}
+		}
+	}
+	return ipv4, ipv6, nil
+}

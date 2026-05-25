@@ -631,6 +631,74 @@ func (_c *MockClient_GetVM_Call) RunAndReturn(run func(context.Context, string, 
 	return _c
 }
 
+// GetVMAgentNetworkInterfaces provides a mock function with given fields: ctx, vm
+func (_m *MockClient) GetVMAgentNetworkInterfaces(ctx context.Context, vm *go_proxmox.VirtualMachine) ([]string, []string, error) {
+	ret := _m.Called(ctx, vm)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetVMAgentNetworkInterfaces")
+	}
+
+	var r0 []string
+	var r1 []string
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, *go_proxmox.VirtualMachine) ([]string, []string, error)); ok {
+		return rf(ctx, vm)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *go_proxmox.VirtualMachine) []string); ok {
+		r0 = rf(ctx, vm)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]string)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *go_proxmox.VirtualMachine) []string); ok {
+		r1 = rf(ctx, vm)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).([]string)
+		}
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context, *go_proxmox.VirtualMachine) error); ok {
+		r2 = rf(ctx, vm)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// MockClient_GetVMAgentNetworkInterfaces_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetVMAgentNetworkInterfaces'
+type MockClient_GetVMAgentNetworkInterfaces_Call struct {
+	*mock.Call
+}
+
+// GetVMAgentNetworkInterfaces is a helper method to define mock.On call
+//   - ctx context.Context
+//   - vm *go_proxmox.VirtualMachine
+func (_e *MockClient_Expecter) GetVMAgentNetworkInterfaces(ctx interface{}, vm interface{}) *MockClient_GetVMAgentNetworkInterfaces_Call {
+	return &MockClient_GetVMAgentNetworkInterfaces_Call{Call: _e.mock.On("GetVMAgentNetworkInterfaces", ctx, vm)}
+}
+
+func (_c *MockClient_GetVMAgentNetworkInterfaces_Call) Run(run func(ctx context.Context, vm *go_proxmox.VirtualMachine)) *MockClient_GetVMAgentNetworkInterfaces_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*go_proxmox.VirtualMachine))
+	})
+	return _c
+}
+
+func (_c *MockClient_GetVMAgentNetworkInterfaces_Call) Return(_a0 []string, _a1 []string, _a2 error) *MockClient_GetVMAgentNetworkInterfaces_Call {
+	_c.Call.Return(_a0, _a1, _a2)
+	return _c
+}
+
+func (_c *MockClient_GetVMAgentNetworkInterfaces_Call) RunAndReturn(run func(context.Context, *go_proxmox.VirtualMachine) ([]string, []string, error)) *MockClient_GetVMAgentNetworkInterfaces_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // QemuAgentStatus provides a mock function with given fields: ctx, vm
 func (_m *MockClient) QemuAgentStatus(ctx context.Context, vm *go_proxmox.VirtualMachine) error {
 	ret := _m.Called(ctx, vm)

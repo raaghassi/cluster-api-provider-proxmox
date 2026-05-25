@@ -104,7 +104,7 @@ func ReconcileVM(ctx context.Context, scope *scope.MachineScope) (infrav1.Virtua
 		return vm, err
 	} // VirtualMachineProvisioned reason is WaitingForClusterAPIMachineAddresses
 
-	if err := reconcileMachineAddresses(scope); err != nil {
+	if err := reconcileMachineAddresses(ctx, scope); err != nil {
 		scope.Logger.V(4).Info("after reconcileMachineAddresses", "machineName", scope.ProxmoxMachine.GetName(), "err", err)
 		return vm, err
 	} // VirtualMachineProvisioned reason is WaitingForCloudInit
@@ -380,13 +380,13 @@ func reconcileVirtualMachineConfig(ctx context.Context, machineScope *scope.Mach
 	return true, nil
 }
 
-func reconcileMachineAddresses(machineScope *scope.MachineScope) error {
+func reconcileMachineAddresses(ctx context.Context, machineScope *scope.MachineScope) error {
 	if conditions.GetReason(machineScope.ProxmoxMachine, infrav1.ProxmoxMachineVirtualMachineProvisionedCondition) != infrav1.ProxmoxMachineVirtualMachineProvisionedWaitingForClusterAPIMachineAddressesReason {
 		// Machine is in the wrong state to reconcile, we only reconcile powered up VMs
 		return nil
 	}
 
-	addr, err := getClusterAPIMachineAddresses(machineScope)
+	addr, err := getClusterAPIMachineAddresses(ctx, machineScope)
 	if err != nil {
 		machineScope.Error(err, "failed to retrieve machine addresses")
 		return err
@@ -402,7 +402,7 @@ func reconcileMachineAddresses(machineScope *scope.MachineScope) error {
 	return nil
 }
 
-func getClusterAPIMachineAddresses(scope *scope.MachineScope) ([]clusterv1.MachineAddress, error) {
+func getClusterAPIMachineAddresses(ctx context.Context, scope *scope.MachineScope) ([]clusterv1.MachineAddress, error) {
 	if !scope.VirtualMachine.IsRunning() {
 		return nil, errors.New("unable to apply configuration as long as the virtual machine is not running")
 	}
@@ -418,9 +418,31 @@ func getClusterAPIMachineAddresses(scope *scope.MachineScope) ([]clusterv1.Machi
 	index := slices.IndexFunc(machineAddresses, func(s infrav1.IPAddressesSpec) bool {
 		return s.NetName == "default"
 	})
-	// TODO: DHCP as InternalIP
+
 	if index == -1 {
-		return addresses, errors.Errorf("Machine has no default IPAddresses")
+		// DHCP fork: no static IPAM allocation. Fall back to QGA for
+		// the addresses the OS picked up via DHCP. QGA may not be up
+		// yet during Talos install/reboot; the controller retries the
+		// whole state-machine step on error, so a transient failure
+		// here just delays this stage.
+		ipv4, ipv6, qErr := scope.InfraCluster.ProxmoxClient.GetVMAgentNetworkInterfaces(ctx, scope.VirtualMachine)
+		if qErr != nil {
+			return addresses, errors.Wrap(qErr, "no IPAM addresses and qemu-guest-agent fallback failed")
+		}
+		for _, ip := range slices.Concat(ipv4, ipv6) {
+			if ip == "" {
+				continue
+			}
+			addresses = append(addresses, clusterv1.MachineAddress{
+				Type:    clusterv1.MachineInternalIP,
+				Address: ip,
+			})
+		}
+		if len(addresses) == 1 {
+			// Only the hostname; QGA returned no usable addresses.
+			return addresses, errors.New("qemu-guest-agent reported no usable addresses")
+		}
+		return addresses, nil
 	}
 
 	defaultAddresses := machineAddresses[index]
