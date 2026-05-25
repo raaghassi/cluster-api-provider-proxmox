@@ -419,12 +419,24 @@ func getClusterAPIMachineAddresses(ctx context.Context, scope *scope.MachineScop
 		return s.NetName == "default"
 	})
 
-	if index == -1 {
-		// DHCP fork: no static IPAM allocation. Fall back to QGA for
-		// the addresses the OS picked up via DHCP. QGA may not be up
-		// yet during Talos install/reboot; the controller retries the
-		// whole state-machine step on error, so a transient failure
-		// here just delays this stage.
+	if index != -1 {
+		defaultAddresses := machineAddresses[index]
+		for _, address := range slices.Concat(defaultAddresses.IPv4, defaultAddresses.IPv6) {
+			if address == "" {
+				continue
+			}
+			addresses = append(addresses, clusterv1.MachineAddress{
+				Type:    clusterv1.MachineInternalIP,
+				Address: address,
+			})
+		}
+	}
+
+	// DHCP fork: when IPAM produced no usable addresses (no entry, or
+	// an empty placeholder), fall back to QGA. Talos may still be in
+	// the installer phase with QGA unavailable; the error propagates
+	// up and the state-machine step retries.
+	if len(addresses) == 1 {
 		ipv4, ipv6, qErr := scope.InfraCluster.ProxmoxClient.GetVMAgentNetworkInterfaces(ctx, scope.VirtualMachine)
 		if qErr != nil {
 			return addresses, errors.Wrap(qErr, "no IPAM addresses and qemu-guest-agent fallback failed")
@@ -439,22 +451,8 @@ func getClusterAPIMachineAddresses(ctx context.Context, scope *scope.MachineScop
 			})
 		}
 		if len(addresses) == 1 {
-			// Only the hostname; QGA returned no usable addresses.
-			return addresses, errors.New("qemu-guest-agent reported no usable addresses")
+			return addresses, errors.New("no IPAM addresses and qemu-guest-agent reported no usable addresses")
 		}
-		return addresses, nil
-	}
-
-	defaultAddresses := machineAddresses[index]
-
-	for _, address := range slices.Concat(defaultAddresses.IPv4, defaultAddresses.IPv6) {
-		if address == "" {
-			continue
-		}
-		addresses = append(addresses, clusterv1.MachineAddress{
-			Type:    clusterv1.MachineInternalIP,
-			Address: address,
-		})
 	}
 
 	return addresses, nil

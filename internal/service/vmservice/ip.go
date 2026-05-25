@@ -251,7 +251,13 @@ func handleDevices(ctx context.Context, machineScope *scope.MachineScope, addres
 				defaultPoolMap[ipPool] = ipAddresses
 			}
 		}
-		addresses["default"] = defaultPoolMap
+		// DHCP fork: only record a "default" entry when something was
+		// actually allocated. An empty placeholder confuses
+		// getClusterAPIMachineAddresses into thinking IPAM populated
+		// the Machine when it didn't.
+		if len(defaultPoolMap) > 0 {
+			addresses["default"] = defaultPoolMap
+		}
 	}
 
 	return requeue, nil
