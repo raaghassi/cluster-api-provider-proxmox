@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 	ipamicv1 "sigs.k8s.io/cluster-api-ipam-provider-in-cluster/api/v1alpha2"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/ionos-cloud/cluster-api-provider-proxmox/api/v1alpha2"
@@ -441,4 +442,36 @@ func TestReconcileIPAddresses_MachineIPPoolRef(t *testing.T) {
 	)
 
 	requireConditionIsFalse(t, machineScope.ProxmoxMachine, infrav1.ProxmoxMachineVirtualMachineProvisionedCondition)
+}
+
+// TestReconcileIPAddresses_PureDHCPAdvances exercises the pure-DHCP path:
+// ProxmoxCluster has no ipv4Config (so InClusterZoneRef is empty), every
+// NetworkDevice is dhcp4=true with no IPPoolRef. reconcileIPAddresses should
+// fall through without error and advance the state machine to
+// WaitingForBootstrapDataReconciliation rather than wedging on a
+// "zone default not found" lookup.
+func TestReconcileIPAddresses_PureDHCPAdvances(t *testing.T) {
+	machineScope, _, _ := setupReconcilerTestWithCondition(t, infrav1.ProxmoxMachineVirtualMachineProvisionedWaitingForStaticIPAllocationReason)
+
+	// Simulate the pure-DHCP cluster shape: no IPAM zones registered.
+	machineScope.InfraCluster.ProxmoxCluster.Status.InClusterZoneRef = nil
+	machineScope.InfraCluster.ProxmoxCluster.Status.InClusterIPPoolRef = nil
+
+	machineScope.ProxmoxMachine.Spec.Network = &infrav1.NetworkSpec{
+		NetworkDevices: []infrav1.NetworkDevice{
+			{
+				Name:  infrav1.DefaultNetworkDevice,
+				DHCP4: ptr.To(true),
+			},
+		},
+	}
+
+	requeue, err := reconcileIPAddresses(context.Background(), machineScope)
+	require.NoError(t, err)
+	require.True(t, requeue)
+
+	require.Equal(t,
+		infrav1.ProxmoxMachineVirtualMachineProvisionedWaitingForBootstrapDataReconciliationReason,
+		conditions.GetReason(machineScope.ProxmoxMachine, infrav1.ProxmoxMachineVirtualMachineProvisionedCondition),
+	)
 }

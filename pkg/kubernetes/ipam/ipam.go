@@ -178,6 +178,14 @@ func (h *Helper) GetInClusterPools(ctx context.Context, moxm *infrav1.ProxmoxMac
 
 	namespace := moxm.ObjectMeta.Namespace
 
+	// DHCP fork: pure-DHCP cluster has no InClusterIPPools, so
+	// cluster.Status.InClusterZoneRef is empty. handleDevices wedges
+	// on the zone-lookup error otherwise; return empty pools so it
+	// can iterate over no pools and the state machine advances.
+	if len(h.cluster.Status.InClusterZoneRef) == 0 {
+		return pools, nil
+	}
+
 	zone := ptr.To(ptr.Deref(moxm.Spec.Network.Zone, "default"))
 	zoneIndex := slices.IndexFunc(h.cluster.Status.InClusterZoneRef, func(z infrav1.InClusterZoneRef) bool {
 		return ptr.Equal(zone, z.Zone)
