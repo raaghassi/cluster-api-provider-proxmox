@@ -347,6 +347,19 @@ func reconcileVirtualMachineConfig(ctx context.Context, machineScope *scope.Mach
 	}
 
 	if len(vmOptions) == 0 {
+		// No config delta with the spec, but the state-machine reason
+		// must still advance — every downstream stage (reconcileDisks,
+		// reconcileIPAddresses, reconcileBootstrapData, reconcilePowerState)
+		// gates on its expected previous reason and returns nil/false on
+		// mismatch. Returning here without advancing would leave the
+		// reason at Cloning forever; the cascade then falls through to
+		// `vm.State = VirtualMachineStateReady` at the end of ReconcileVM
+		// without any qmconfig/qmstart actually running.
+		conditions.Set(machineScope.ProxmoxMachine, metav1.Condition{
+			Type:   infrav1.ProxmoxMachineVirtualMachineProvisionedCondition,
+			Status: metav1.ConditionFalse,
+			Reason: infrav1.ProxmoxMachineVirtualMachineProvisionedWaitingForDiskReconciliationReason,
+		})
 		return false, nil
 	}
 

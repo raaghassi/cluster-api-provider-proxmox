@@ -426,6 +426,12 @@ func TestReconcileVirtualMachineConfig_NoConfig(t *testing.T) {
 	requeue, err := reconcileVirtualMachineConfig(context.Background(), machineScope)
 	require.NoError(t, err)
 	require.False(t, requeue)
+	// Even with no config delta, the state machine reason must advance
+	// so downstream stages (disk → IP → bootstrap → power) aren't gated
+	// out and ReconcileVM doesn't fall through to vm.State=Ready.
+	require.Equal(t,
+		infrav1.ProxmoxMachineVirtualMachineProvisionedWaitingForDiskReconciliationReason,
+		conditions.GetReason(machineScope.ProxmoxMachine, infrav1.ProxmoxMachineVirtualMachineProvisionedCondition))
 }
 
 func TestReconcileVirtualMachineConfig_ApplyConfig(t *testing.T) {
