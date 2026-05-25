@@ -11,7 +11,12 @@ permissions:
 
 jobs:
   build:
-    name: create draft release
+    # dhcp-fork: auto-publish instead of draft. capi-operator filters
+    # draft releases out of its release-discovery API call, so a draft
+    # blocks the operator with "release not found for version <tag>"
+    # even though the asset URLs themselves are reachable. Upstream
+    # keeps draft=true for human review; this fork iterates faster.
+    name: create release
     runs-on: ubuntu-latest
     steps:
       - name: Set env
@@ -33,6 +38,6 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
-          draft: true
+          draft: false
           files: out/*
           generate_release_notes: true
