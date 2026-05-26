@@ -330,6 +330,54 @@ func (_c *MockClient_DeleteVM_Call) RunAndReturn(run func(context.Context, strin
 	return _c
 }
 
+// EnsureHaResource provides a mock function with given fields: ctx, vmID, group
+func (_m *MockClient) EnsureHaResource(ctx context.Context, vmID int64, group string) error {
+	ret := _m.Called(ctx, vmID, group)
+
+	if len(ret) == 0 {
+		panic("no return value specified for EnsureHaResource")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64, string) error); ok {
+		r0 = rf(ctx, vmID, group)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockClient_EnsureHaResource_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EnsureHaResource'
+type MockClient_EnsureHaResource_Call struct {
+	*mock.Call
+}
+
+// EnsureHaResource is a helper method to define mock.On call
+//   - ctx context.Context
+//   - vmID int64
+//   - group string
+func (_e *MockClient_Expecter) EnsureHaResource(ctx interface{}, vmID interface{}, group interface{}) *MockClient_EnsureHaResource_Call {
+	return &MockClient_EnsureHaResource_Call{Call: _e.mock.On("EnsureHaResource", ctx, vmID, group)}
+}
+
+func (_c *MockClient_EnsureHaResource_Call) Run(run func(ctx context.Context, vmID int64, group string)) *MockClient_EnsureHaResource_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int64), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockClient_EnsureHaResource_Call) Return(_a0 error) *MockClient_EnsureHaResource_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockClient_EnsureHaResource_Call) RunAndReturn(run func(context.Context, int64, string) error) *MockClient_EnsureHaResource_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FindVMResource provides a mock function with given fields: ctx, vmID
 func (_m *MockClient) FindVMResource(ctx context.Context, vmID uint64) (*go_proxmox.ClusterResource, error) {
 	ret := _m.Called(ctx, vmID)
@@ -689,8 +737,8 @@ func (_c *MockClient_GetVMAgentNetworkInterfaces_Call) Run(run func(ctx context.
 	return _c
 }
 
-func (_c *MockClient_GetVMAgentNetworkInterfaces_Call) Return(_a0 []string, _a1 []string, _a2 error) *MockClient_GetVMAgentNetworkInterfaces_Call {
-	_c.Call.Return(_a0, _a1, _a2)
+func (_c *MockClient_GetVMAgentNetworkInterfaces_Call) Return(ipv4 []string, ipv6 []string, err error) *MockClient_GetVMAgentNetworkInterfaces_Call {
+	_c.Call.Return(ipv4, ipv6, err)
 	return _c
 }
 

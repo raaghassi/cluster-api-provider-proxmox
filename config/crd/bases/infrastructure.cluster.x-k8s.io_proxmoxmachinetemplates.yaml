@@ -855,6 +855,21 @@ spec:
                           This is always done when you clone a normal VM.
                           Defaults to true when not specified, creating a full clone by default.
                         type: boolean
+                      haGroup:
+                        description: |-
+                          haGroup, if set, enrolls the cloned VM in the named PVE HA-manager
+                          group after creation. The group must pre-exist on the cluster;
+                          out-of-band group provisioning is the caller's responsibility
+                          (e.g., via Crossplane provider-proxmox-bpg `EnvironmentHagroup` CRs).
+                          Empty (default) means no HA enrollment — VMs are created as
+                          regular Proxmox VMs without HA-manager involvement.
+
+                          Idempotent: re-reconciles set the same group as a no-op; changing
+                          the value triggers a PUT against /cluster/ha/resources/vm:<vmid>.
+                          State is always `started` so HA-manager keeps the VM running and
+                          fails it over on node loss.
+                        pattern: ^[a-zA-Z0-9_-]+$
+                        type: string
                       memoryMiB:
                         description: |-
                           memoryMiB is the size of a virtual machine's memory, in MiB.
