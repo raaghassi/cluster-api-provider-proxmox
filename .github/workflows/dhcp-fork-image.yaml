@@ -1,7 +1,8 @@
 name: dhcp-fork-image
 
 # Fork-specific image build that triggers on the dhcp-support branch
-# and tags matching v*-dhcp.* (e.g. v0.8.1-dhcp.1). The upstream
+# and tags matching the fork's series patterns (v*-dhcp.* for DHCP
+# patches, v*-ha.* for HA-manager patches, etc.). The upstream
 # container-image.yaml continues to handle main/release-* and plain
 # v* tags; this workflow is additive so an upstream rebase doesn't
 # conflict with our customisations.
@@ -12,6 +13,7 @@ on:
       - dhcp-support
     tags:
       - 'v*-dhcp.*'
+      - 'v*-ha.*'
   pull_request:
     branches:
       - dhcp-support
