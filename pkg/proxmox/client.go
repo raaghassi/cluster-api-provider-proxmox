@@ -62,4 +62,15 @@ type Client interface {
 	// to discover DHCP-assigned addresses when CAPMox-managed IPAM has
 	// no record of the assignment (pure-DHCP mode).
 	GetVMAgentNetworkInterfaces(ctx context.Context, vm *proxmox.VirtualMachine) (ipv4, ipv6 []string, err error)
+
+	// EnsureHaResource enrolls a VM into a PVE HA-manager group. The
+	// group must pre-exist on the cluster (managed out-of-band, e.g.,
+	// by the Crossplane provider-proxmox-bpg `EnvironmentHagroup` CR in
+	// cluster-aghassi-net's control/proxmox-ha-config chart). Idempotent
+	// — re-enrollment with the same group returns success; updating to
+	// a different group issues a PUT.
+	//
+	// go-proxmox does not natively support /cluster/ha/resources, so
+	// this method calls the raw client.Post()/Put() against the PVE API.
+	EnsureHaResource(ctx context.Context, vmID int64, group string) error
 }

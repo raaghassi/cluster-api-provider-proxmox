@@ -114,6 +114,11 @@ func ReconcileVM(ctx context.Context, scope *scope.MachineScope) (infrav1.Virtua
 		return vm, err
 	} // VirtualMachineProvisioned reason is WaitingForBootstrapReady
 
+	if err := reconcileHA(ctx, scope); err != nil {
+		scope.Logger.V(4).Info("after reconcileHA", "machineName", scope.ProxmoxMachine.GetName(), "err", err)
+		return vm, err
+	}
+
 	// handle invalid state of the machine
 	if proxmoxMachineHasVMProvisionFailedReason(scope) {
 		scope.Logger.V(4).Info("invalid proxmoxmachine state", "state", conditions.GetReason(scope.ProxmoxMachine, infrav1.ProxmoxMachineVirtualMachineProvisionedCondition))
@@ -611,4 +616,41 @@ var selectNextNode = scheduler.ScheduleVM
 
 func unmountCloudInitISO(ctx context.Context, machineScope *scope.MachineScope) error {
 	return machineScope.InfraCluster.ProxmoxClient.UnmountCloudInitISO(ctx, machineScope.VirtualMachine, inject.CloudInitISODevice)
+}
+
+// reconcileHA enrolls the VM in a PVE HA-manager group, if
+// ProxmoxMachine.Spec.HaGroup is set. Empty group = no-op. The PVE
+// client method is idempotent (probes existing membership; POST on
+// 404, PUT on group-mismatch, no-op on already-correct), so this is
+// safe to call on every reconcile.
+//
+// Hook point: after checkCloudInitStatus returns success, before VM
+// State is set to Ready. Reasoning:
+//   - VM must exist on PVE (post-clone) → ensureVirtualMachine done.
+//   - VM should not get HA-managed before its config/disks are
+//     stable; HA-manager treats the VM as `state=started` and could
+//     interfere with config changes mid-reconcile.
+//   - Running it AFTER checkCloudInitStatus means it only fires once
+//     bootstrap is done. On reconciler restart, the idempotent probe
+//     short-circuits and is essentially free.
+//
+// Group membership errors do NOT mark the VM provisioning as failed
+// — the VM is functionally up, just not in the HA group. Caller's
+// reconcile loop will retry on the next iteration.
+func reconcileHA(ctx context.Context, machineScope *scope.MachineScope) error {
+	group := machineScope.ProxmoxMachine.Spec.HaGroup
+	if group == "" {
+		return nil
+	}
+	vmid := machineScope.GetVirtualMachineID()
+	if vmid <= 0 {
+		// VM not yet provisioned; nothing to enroll. Earlier stages
+		// (ensureVirtualMachine) gate on VMID — defensive check.
+		return nil
+	}
+	if err := machineScope.InfraCluster.ProxmoxClient.EnsureHaResource(ctx, vmid, group); err != nil {
+		return errors.Wrapf(err, "ha enroll vm:%d → group=%s", vmid, group)
+	}
+	machineScope.Logger.V(4).Info("ha enrolled", "vmid", vmid, "group", group)
+	return nil
 }

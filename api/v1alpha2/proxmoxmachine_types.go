@@ -139,6 +139,21 @@ type ProxmoxMachineSpec struct {
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:items:Pattern=`^(?i)[a-z0-9_][a-z0-9_\-\+\.]*$`
 	Tags []string `json:"tags,omitempty"`
+
+	// haGroup, if set, enrolls the cloned VM in the named PVE HA-manager
+	// group after creation. The group must pre-exist on the cluster;
+	// out-of-band group provisioning is the caller's responsibility
+	// (e.g., via Crossplane provider-proxmox-bpg `EnvironmentHagroup` CRs).
+	// Empty (default) means no HA enrollment — VMs are created as
+	// regular Proxmox VMs without HA-manager involvement.
+	//
+	// Idempotent: re-reconciles set the same group as a no-op; changing
+	// the value triggers a PUT against /cluster/ha/resources/vm:<vmid>.
+	// State is always `started` so HA-manager keeps the VM running and
+	// fails it over on node loss.
+	// +optional
+	// +kubebuilder:validation:Pattern=`^[a-zA-Z0-9_-]+$`
+	HaGroup string `json:"haGroup,omitempty"`
 }
 
 // Storage is the physical storage on the node.

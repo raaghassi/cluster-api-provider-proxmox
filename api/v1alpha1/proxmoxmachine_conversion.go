@@ -110,6 +110,11 @@ func restoreProxmoxMachineSpec(src *ProxmoxMachineSpec, dst *v1alpha2.ProxmoxMac
 
 	Convert_string_To_Pointer_string(src.TemplateSource.SourceNode, ok, restored.TemplateSource.SourceNode, &dst.TemplateSource.SourceNode)
 
+	// HaGroup (v2-only) — restore from annotation if present.
+	if ok {
+		dst.HaGroup = restored.HaGroup
+	}
+
 	if dst.Network != nil && restored.Network != nil {
 		for i := range restored.Network.NetworkDevices {
 			device := getNetDeviceByName(src.Network.AdditionalDevices, string(dst.Network.NetworkDevices[i].Name))

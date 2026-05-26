@@ -431,3 +431,75 @@ func (c *APIClient) GetVMAgentNetworkInterfaces(ctx context.Context, vm *proxmox
 	}
 	return ipv4, ipv6, nil
 }
+
+// EnsureHaResource enrolls a VM in a PVE HA-manager group, idempotent.
+// The go-proxmox library has no native /cluster/ha/resources support
+// (verified against luthermonson/go-proxmox cluster.go), so we use
+// the raw client.Get/Post/Put helpers.
+//
+// Flow:
+//  1. GET /cluster/ha/resources/<sid>
+//     - 200 + current group matches  → no-op (success)
+//     - 200 + current group differs  → PUT to update group
+//     - 404                          → POST to create
+//     - other                        → error
+//
+// `sid` follows PVE's HA-resource ID format: `vm:<vmid>`.
+// State is always `started` — HA-manager keeps the VM running and
+// fails it over on node loss. max_restart=1, max_relocate=1 are PVE
+// defaults; explicit for clarity.
+func (c *APIClient) EnsureHaResource(ctx context.Context, vmID int64, group string) error {
+	if group == "" {
+		// No HA group requested. Caller (vmservice.reconcileHA) gates on
+		// this before invoking; defensive zero-check stays cheap.
+		return nil
+	}
+	sid := fmt.Sprintf("vm:%d", vmID)
+
+	// Probe existing resource entry. go-proxmox's Get returns nil for
+	// HTTP 200, and an error containing "500" / "404" / etc. for non-2xx
+	// responses (the library doesn't expose HTTP status as a typed
+	// error). Use the response body for the success path.
+	var existing struct {
+		SID   string `json:"sid,omitempty"`
+		Group string `json:"group,omitempty"`
+		State string `json:"state,omitempty"`
+		Type  string `json:"type,omitempty"`
+	}
+	err := c.Client.Get(ctx, fmt.Sprintf("/cluster/ha/resources/%s", sid), &existing)
+	switch {
+	case err == nil && existing.Group == group:
+		// Already enrolled in the right group.
+		return nil
+	case err == nil && existing.Group != group:
+		// Enrolled in a different group — update.
+		payload := map[string]string{
+			"group": group,
+			"state": "started",
+		}
+		var dropResp interface{}
+		if err := c.Client.Put(ctx, fmt.Sprintf("/cluster/ha/resources/%s", sid), payload, &dropResp); err != nil {
+			return errors.Wrapf(err, "ha update: %s → group=%s", sid, group)
+		}
+		return nil
+	case err != nil && strings.Contains(err.Error(), "no such resource"):
+		// PVE returns "no such resource: HA resource 'vm:NNN' does not
+		// exist" for unknown HA resources. POST to create.
+		payload := map[string]string{
+			"sid":          sid,
+			"group":        group,
+			"state":        "started",
+			"type":         "vm",
+			"max_restart":  "1",
+			"max_relocate": "1",
+		}
+		var dropResp interface{}
+		if err := c.Client.Post(ctx, "/cluster/ha/resources", payload, &dropResp); err != nil {
+			return errors.Wrapf(err, "ha create: %s → group=%s", sid, group)
+		}
+		return nil
+	default:
+		// Any other error (auth, network, malformed response) — propagate.
+		return errors.Wrapf(err, "ha probe: %s", sid)
+	}
+}

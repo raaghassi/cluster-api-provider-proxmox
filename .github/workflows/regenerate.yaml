@@ -1,8 +1,9 @@
 name: regenerate
 
-# Run `make generate manifests` in CI and commit the regenerated
-# zz_generated_*.go + config/crd/bases/*.yaml files back to the
-# triggering branch. Used when the API types change on dhcp-support
+# Run `make generate manifests mockgen` in CI and commit the
+# regenerated zz_generated_*.go + config/crd/bases/*.yaml + mockery-
+# generated mock_client.go files back to the triggering branch.
+# Used when the API types or Client interface changes on dhcp-support
 # (or any feature branch) and the local environment doesn't have
 # Go 1.25 installed.
 #
@@ -32,10 +33,11 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Run make generate manifests
+      - name: Run make generate manifests mockgen
         run: |
           make generate
           make manifests
+          make mockgen
 
       - name: Diff regenerated files
         run: git --no-pager diff
@@ -50,6 +52,6 @@ jobs:
           fi
           git add -A
           git commit \
-            -m "regen: make generate manifests (dhcp4/dhcp6 plumbing)" \
-            -m "Automated regeneration via .github/workflows/regenerate.yaml after API-type changes that aren't reflected in the committed zz_generated_*.go + config/crd/bases/*.yaml files."
+            -m "regen: make generate manifests mockgen" \
+            -m "Automated regeneration via .github/workflows/regenerate.yaml after API-type or Client-interface changes that aren't reflected in the committed zz_generated_*.go + config/crd/bases/*.yaml + mock_client.go files."
           git push origin "HEAD:${{ github.event.inputs.target_branch }}"
