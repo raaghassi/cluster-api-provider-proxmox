@@ -505,6 +505,16 @@ func Convert_v1alpha1_VirtualMachineCloneSpec_To_v1alpha2_VirtualMachineCloneSpe
 	return err
 }
 
+// Convert_v1alpha2_ProxmoxMachineSpec_To_v1alpha1_ProxmoxMachineSpec
+// handles the v2-only HaGroup field on down-conversion. conversion-gen
+// emits a "requires manual conversion" warning for it; this wrapper
+// calls the auto-generated converter (which drops HaGroup silently)
+// and relies on MarshalData in proxmoxmachine_conversion.go to
+// preserve the v2 value in an annotation for the next round-trip.
+func Convert_v1alpha2_ProxmoxMachineSpec_To_v1alpha1_ProxmoxMachineSpec(in *v1alpha2.ProxmoxMachineSpec, out *ProxmoxMachineSpec, s conversion.Scope) error {
+	return autoConvert_v1alpha2_ProxmoxMachineSpec_To_v1alpha1_ProxmoxMachineSpec(in, out, s)
+}
+
 // //
 // helpers
 // //
